@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phòng Flash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #E8EDF1;
+    --rail: #D6DFE7;
+    --ink: #16202A;
+    --muted: #55626F;
+    --cobalt: #2D56E0;
+    --cobalt-deep: #2144B8;
+    --signal: #F0861F;
+    --ok: #2E9E5B;
+    --stage: #0E141B;
+    --line: #B9C6D2;
+    font-family: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  button, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    min-height: 100%;
+  }
+
+  /* Thư viện */
+  .rail {
+    background: var(--rail);
+    border-right: 1px solid var(--line);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .rail h1 { margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+  .rail p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+  .open-btn {
+    background: var(--cobalt);
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+  .open-btn:hover { background: var(--cobalt-deep); }
+
+  .library { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .library button {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .library button:hover { background: #fff; }
+  .library button[aria-current="true"] {
+    background: #fff;
+    border-color: var(--cobalt);
+    box-shadow: inset 4px 0 0 var(--cobalt);
+    font-weight: 600;
+  }
+  .library-empty { color: var(--muted); font-size: 0.9rem; }
+
+  .tip {
+    margin-top: auto;
+    font-size: 0.85rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+
+  /* Sân khấu */
+  .main { padding: 24px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+  .frame {
+    background: var(--stage);
+    border: 8px solid var(--cobalt);
+    border-radius: 10px;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 76vh;
+    position: relative;
+    overflow: hidden;
+  }
+  .frame.drag { border-color: var(--signal); }
+  .frame:fullscreen { border: 0; border-radius: 0; max-height: none; aspect-ratio: auto; }
+  #host, ruffle-player { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .placeholder {
+    position: absolute; inset: 0;
+    display: grid; place-content: center;
+    text-align: center;
+    color: #A9B7C6;
+    padding: 24px;
+    gap: 6px;
+  }
+  .placeholder strong { color: #fff; font-size: 1.15rem; }
+  .frame.has-game .placeholder { display: none; }
+
+  /* Thanh điều khiển */
+  .bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .status { display: flex; align-items: center; gap: 8px; margin-right: auto; min-width: 0; }
+  .led { width: 11px; height: 11px; border-radius: 50%; background: #98A5B1; flex: none; }
+  .led.loading { background: var(--signal); animation: pulse 1s ease-in-out infinite; }
+  .led.run { background: var(--ok); }
+  .led.error { background: #D13B3B; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .led.loading { animation: none; } }
+  #statusText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .field { display: flex; align-items: center; gap: 8px; }
+  .field label { color: var(--muted); font-size: 0.9rem; }
+  select {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 10px;
+  }
+  .btn {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+  }
+  .btn:hover:not(:disabled) { background: var(--rail); }
+  .btn:disabled { opacity: 0.45; cursor: default; }
+  .btn.danger:hover:not(:disabled) { background: #F6D9D9; }
+
+  .note { margin: 0; color: var(--muted); font-size: 0.85rem; }
+
+  @media (max-width: 820px) {
+    .app { grid-template-columns: 1fr; }
+    .rail { border-right: 0; border-bottom: 1px solid var(--line); }
+    .main { padding: 14px; }
+    .frame { border-width: 5px; max-height: 70vh; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div>
+      <h1>Phòng Flash</h1>
+      <p>Chơi game .swf ngay trên trình duyệt, chạy bằng Ruffle.</p>
+    </div>
+
+    <button class="open-btn" id="openBtn" type="button">Mở file .swf từ máy</button>
+    <input type="file" id="fileInput" accept=".swf" hidden>
+
+    <ul class="library" id="library" aria-label="Thư viện game"></ul>
+    <p class="library-empty" id="libraryEmpty" hidden>Chưa có game nào trong thư viện. Thêm file vào thư mục <code>games/</code> và khai báo trong <code>games/games.json</code>.</p>
+
+    <p class="tip">Máy yếu RAM? Chọn chất lượng Thấp, và bấm “Thoát game” mỗi khi chơi xong để giải phóng bộ nhớ.</p>
+  </aside>
+
+  <main class="main">
+    <div class="frame" id="frame">
+      <div id="host"></div>
+      <div class="placeholder">
+        <strong>Chưa có game nào đang chạy</strong>
+        <span>Chọn game ở thư viện, hoặc kéo file .swf thả vào khung này.</span>
+      </div>
+    </div>
+
+    <div class="bar">
+      <div class="status" role="status" aria-live="polite">
+        <span class="led" id="led"></span>
+        <span id="statusText">Sẵn sàng</span>
+      </div>
+      <div class="field">
+        <label for="quality">Chất lượng</label>
+        <select id="quality">
+          <option value="low">Thấp (nhẹ RAM)</option>
+          <option value="medium" selected>Trung bình</option>
+          <option value="high">Cao</option>
+          <option value="best">Tốt nhất</option>
+        </select>
+      </div>
+      <button class="btn" id="reloadBtn" type="button" disabled>Tải lại game</button>
+      <button class="btn" id="fsBtn" type="button" disabled>Toàn màn hình</button>
+      <button class="btn danger" id="stopBtn" type="button" disabled>Thoát game</button>
+    </div>
+    <p class="note">Đổi chất lượng sẽ có hiệu lực ở lần tải game tiếp theo. File mở từ máy chỉ chạy trong trình duyệt của bạn, không bị tải lên đâu cả.</p>
+  </main>
+</div>
+
+<script src="ruffle/ruffle.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var frame = $("#frame"), host = $("#host"), led = $("#led"), statusText = $("#statusText");
+  var qualitySel = $("#quality"), reloadBtn = $("#reloadBtn"), fsBtn = $("#fsBtn"), stopBtn = $("#stopBtn");
+  var library = $("#library"), libraryEmpty = $("#libraryEmpty");
+  var fileInput = $("#fileInput"), openBtn = $("#openBtn");
+
+  var player = null, blobUrl = null, current = null;
+
+  // Nhớ mức chất lượng đã chọn
+  try {
+    var saved = localStorage.getItem("flash-quality");
+    if (saved) qualitySel.value = saved;
+  } catch (e) {}
+  qualitySel.addEventListener("change", function () {
+    try { localStorage.setItem("flash-quality", qualitySel.value); } catch (e) {}
+  });
+
+  function setStatus(kind, text) {
+    led.className = "led" + (kind ? " " + kind : "");
+    statusText.textContent = text;
+  }
+  function setControls(on) {
+    reloadBtn.disabled = fsBtn.disabled = stopBtn.disabled = !on;
+  }
+  function markCurrent(title) {
+    Array.prototype.forEach.call(library.querySelectorAll("button"), function (b) {
+      if (b.dataset.title === title) b.setAttribute("aria-current", "true");
+      else b.removeAttribute("aria-current");
+    });
+  }
+
+  // Giải phóng player và bộ nhớ mà nó đang giữ
+  function unload() {
+    if (player) { player.remove(); player = null; }
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+    frame.classList.remove("has-game");
+    setControls(false);
+  }
+
+  function start(item) {
+    unload();
+    current = item;
+    if (!window.RufflePlayer) {
+      setStatus("error", "Không tải được Ruffle. Kiểm tra thư mục ruffle/ và mở trang qua http, không mở thẳng file.");
+      return;
+    }
+    var url = item.url;
+    if (item.file) { blobUrl = URL.createObjectURL(item.file); url = blobUrl; }
+
+    var ruffle = window.RufflePlayer.newest();
+    player = ruffle.createPlayer();
+    host.appendChild(player);
+    frame.classList.add("has-game");
+    setControls(true);
+    markCurrent(item.title);
+    setStatus("loading", "Đang tải: " + item.title);
+
+    player.addEventListener("loadedmetadata", function () {
+      setStatus("run", "Đang chạy: " + item.title);
+    });
+    var p = player.ruffle().load({
+      url: url,
+      quality: qualitySel.value,
+      letterbox: "on",
+      autoplay: "auto"
+    });
+    if (p && p.catch) {
+      p.catch(function (err) {
+        console.error(err);
+        setStatus("error", "Không mở được " + item.title + ". Kiểm tra đường dẫn file.");
+      });
+    }
+    // Phòng khi sự kiện loadedmetadata không bắn
+    setTimeout(function () {
+      if (player && led.classList.contains("loading")) setStatus("run", "Đang chạy: " + item.title);
+    }, 4000);
+  }
+
+  function startFile(file) {
+    if (!file) return;
+    if (!/\.swf$/i.test(file.name)) {
+      setStatus("error", "Chỉ mở được file .swf");
+      return;
+    }
+    start({ title: file.name, file: file });
+  }
+
+  // Nút điều khiển
+  reloadBtn.addEventListener("click", function () { if (current) start(current); });
+  stopBtn.addEventListener("click", function () { unload(); current = null; markCurrent(null); setStatus("", "Đã thoát game, bộ nhớ đã được giải phóng"); });
+  fsBtn.addEventListener("click", function () {
+    try {
+      if (player && player.ruffle && player.ruffle().enterFullscreen) { player.ruffle().enterFullscreen(); return; }
+    } catch (e) {}
+    if (frame.requestFullscreen) frame.requestFullscreen();
+  });
+
+  openBtn.addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () {
+    startFile(fileInput.files[0]);
+    fileInput.value = "";
+  });
+
+  // Kéo thả file .swf
+  ["dragenter", "dragover"].forEach(function (ev) {
+    frame.addEventListener(ev, function (e) { e.preventDefault(); frame.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    frame.addEventListener(ev, function (e) { e.preventDefault(); frame.classList.remove("drag"); });
+  });
+  frame.addEventListener("drop", function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    startFile(f);
+  });
+
+  // Thư viện game đọc từ games/games.json
+  function renderLibrary(list) {
+    library.innerHTML = "";
+    if (!list.length) { libraryEmpty.hidden = false; return; }
+    libraryEmpty.hidden = true;
+    list.forEach(function (g) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = g.title;
+      b.dataset.title = g.title;
+      b.addEventListener("click", function () { start({ title: g.title, url: g.file }); });
+      li.appendChild(b);
+      library.appendChild(li);
+    });
+  }
+  fetch("games/games.json", { cache: "no-cache" })
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .catch(function () { return []; })
+    .then(renderLibrary);
+})();
+</script>
+</body>
+</html>
