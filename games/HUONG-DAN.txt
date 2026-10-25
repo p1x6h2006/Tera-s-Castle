@@ -1,0 +1,4 @@
+Bo file .swf vao thu muc nay (vi du: teras-castle.swf).
+Sau do them 1 dong vao games.json:
+  { "title": "Ten game", "file": "games/ten-file.swf" }
+Luu y: dong cuoi cung khong co dau phay o cuoi.
